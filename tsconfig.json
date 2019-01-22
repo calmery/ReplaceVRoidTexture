@@ -3,6 +3,7 @@
     "esModuleInterop": true,
     "module": "commonjs",
     "moduleResolution": "node",
+    "lib": ["dom", "ES2015"],
     "target": "es5"
   }
 }

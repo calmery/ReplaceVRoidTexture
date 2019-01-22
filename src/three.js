@@ -3526,6 +3526,17 @@ THREE.GLTFLoader = (function() {
             updateMorphTargets(mesh, meshDef);
           }
 
+          const targetMaterialNames = Object.keys(state.materials).filter(
+            material => state.materials[material] !== null
+          );
+          mesh.material = mesh.material.map(material => {
+            if (material.name && targetMaterialNames.includes(material.name)) {
+              material.map = state.materials[material.name];
+            }
+
+            return material;
+          });
+
           mesh.name = meshDef.name || "mesh_" + meshIndex;
 
           if (geometries.length > 1) mesh.name += "_" + i;

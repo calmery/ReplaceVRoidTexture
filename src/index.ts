@@ -9,10 +9,57 @@ import "./index.scss";
 
 import calmeryVrm from "./Calmery.vrm";
 
+// Helper Functions
+
+const generateInputForMaterials = () => {
+  const inputs = document.getElementById("inputs");
+
+  [].slice.call(inputs.children).forEach((input: HTMLElement) => {
+    inputs.removeChild(input);
+  });
+
+  Object.keys(state.materials).forEach(materialName => {
+    const div = document.createElement("div");
+
+    const label = document.createElement("span");
+    label.innerHTML = materialName;
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.onchange = event => {
+      const file = (event.target as any).files[0];
+      const fileReader = new FileReader();
+
+      fileReader.onload = () => {
+        const loader = new THREE.TextureLoader();
+
+        loader.load(fileReader.result, (texture: THREE.Texture) => {
+          texture.flipY = false;
+          state.materials[materialName] = texture;
+
+          loadVrm(calmeryVrm);
+        });
+      };
+
+      fileReader.readAsDataURL(file);
+    };
+
+    div.appendChild(label);
+    div.appendChild(input);
+
+    inputs.appendChild(div);
+  });
+};
+
 // Main
 
-const container = document.createElement("div");
-document.body.appendChild(container);
+const state = {
+  vrm: null,
+  materials: {}
+};
+
+// FIXME: とりあえず THREE.GLTFLoader で参照できるようにした
+(window as any).state = state;
 
 const camera = new THREE.PerspectiveCamera(
   45,
@@ -32,43 +79,46 @@ light.position.set(0, 1, 0);
 scene.add(light);
 
 const loader = new THREE.VRMLoader();
+const loadVrm = (url: string) => {
+  if (state.vrm !== null) {
+    scene.remove(state.vrm.scene);
+  }
 
-loader.load(calmeryVrm, (vrm: any) => {
-  vrm.scene.traverse((object: any) => {
-    if (object.material) {
-      if (Array.isArray(object.material)) {
-        for (let i = 0, il = object.material.length; i < il; i++) {
-          const material = new THREE.MeshBasicMaterial();
-          THREE.Material.prototype.copy.call(material, object.material[i]);
-          material.color.copy(object.material[i].color);
-          material.map = object.material[i].map;
-          material.lights = false;
-          material.skinning = object.material[i].skinning;
-          material.morphTargets = object.material[i].morphTargets;
-          material.morphNormals = object.material[i].morphNormals;
-          object.material[i] = material;
+  const materialNames = [];
+
+  loader.load(url, (vrm: any) => {
+    vrm.scene.traverse((object: any) => {
+      if (object.material && Array.isArray(object.material)) {
+        for (let i = 0; i < object.material.length; i++) {
+          if (object.material[i].name.includes("CLOTH")) {
+            materialNames.push(object.material[i].name);
+          }
         }
-      } else {
-        const material = new THREE.MeshBasicMaterial();
-        THREE.Material.prototype.copy.call(material, object.material);
-        material.color.copy(object.material.color);
-        material.map = object.material.map;
-        material.lights = false;
-        material.skinning = object.material.skinning;
-        material.morphTargets = object.material.morphTargets;
-        material.morphNormals = object.material.morphNormals;
-        object.material = material;
       }
-    }
+    });
+
+    const materials = {};
+    materialNames
+      .filter((material, index) => materialNames.indexOf(material) === index)
+      .forEach(materialName => {
+        materials[materialName] = state.materials[materialName] || null;
+      });
+
+    state.materials = materials;
+    state.vrm = vrm;
+
+    generateInputForMaterials();
+
+    scene.add(vrm.scene);
   });
-  scene.add(vrm.scene);
-});
+};
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.gammaOutput = true;
-container.appendChild(renderer.domElement);
+document.getElementById("container").appendChild(renderer.domElement);
+
 window.addEventListener(
   "resize",
   () => {
@@ -84,4 +134,5 @@ const animate = () => {
   renderer.render(scene, camera);
 };
 
+loadVrm(calmeryVrm);
 animate();
