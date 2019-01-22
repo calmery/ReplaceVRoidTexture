@@ -29,6 +29,10 @@ export default {
       {
         test: /\.ts$/,
         loader: "ts-loader"
+      },
+      {
+        test: /\.vrm$/,
+        loader: "file-loader"
       }
     ]
   },
